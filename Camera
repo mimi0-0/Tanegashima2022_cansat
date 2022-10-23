@@ -1,0 +1,48 @@
+#カメラモジュールの入力より右回転→1、左回転→2、前進→3、停止→4と出力するプログラム
+
+import cv2
+import numpy as np
+
+#ラズパイカメラから入力開始
+cap = cv2.VideoCapture(0)
+
+while True:
+    #画像取得
+    _, frame = cap.read()
+    #画像分割(x軸,y軸)
+    flame = cv2.resize(frame,(600,300))
+    xr, yr = 400, 0
+    xl, yl = 0, 0
+    w, h = 200, 300
+    right = flame[yr:yr+h, xr:xr+w]
+    left = flame[yl:yl+h, xl:xl+w]
+    #色空間→HSV空間
+    hsv = cv2.cvtColor(flame,cv2.COLOR_BGR2HSV_FULL)
+    #赤色判定とする範囲を指定
+    lower =np.array([0, 64, 0]) 
+    upper =np.array([15, 255, 255])
+    #赤色＝コーン部分の大きさの全体定義
+    corn1 = inRange(hsv, lower, upper)
+    #赤色＝コーン部分の大きさの右側定義
+    corn2 = inRange(right, lower, upper)
+    #赤色＝コーン部分の大きさの左側定義
+    corn3 = inRange(left, lower, upper)
+    
+    #画面内に赤色がなければ右回転
+    if pyplot.imshow(corn) == 0 :
+        print("1")
+    #右側の赤色が多ければ右回転
+    elif pyplot.imshow(corn2) >= pyplot.imshow(corn3) :
+        print("1")
+    #左側の赤色が多ければ左回転
+    elif pyplot.imshow(corn3) >= pyplot.imshow(corn2) :
+        print("2")
+    #それ以外（真ん中に捉えている)なら前進
+    else :
+        print("3")
+    #コーンの面積率を出し、80%以上なら止める(エクストラサクセス達成)
+    if pyplot.imshow(corn1) >= 80 : break
+print("4")
+
+cap.release()#後処理
+cv2.destroyALLWindows()
