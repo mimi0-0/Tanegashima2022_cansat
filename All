@@ -1,1 +1,105 @@
+#保留事項→キャリブレーション、ログ、値取得
+
+import time
+import smbus#i2cとか
+
+#初期設定==============
+
+#入力→9軸センサ、出力→加速度(m/s^2:f2)
+def acce():
+	acce_x = 
+	acce_y = 
+	acce_z =
+
+	return math.sqrt(acce_x**2 + acce_y**2 + acce_z**2)
+
+#入力→気圧センサ、出力→気圧(hPa:df保留)
+def press():
+	
+	
+	return 
+
+#右旋回
+def turnright():
+	
+#左旋回
+def turnleft():
+ 
+#直進
+def moter():
+
+acce_now = acce(#現在時刻) 
+	
+#落下判定==============
+#入力→加速度(f)、出力→次
+def fall_detection():
+	while acce_now <= 9.5:
+		time.sleep(5.0)
+		 
+#着地判定==============
+#入力→加速度(f)、気圧(d)、出力→次
+def land_detection():
+
+
+#溶断回路==============
+#入力→、出力→mosfet
+def fuse_detection():
+
+#GPS誘導==============
+#入力→、出力→モータ
+def GPS_run():
+
+#画像処理誘導==========
+#入力→カメラ、出力→モータ
+def image_run():
+	cap = cv2.VideoCapture(0)
+
+	while True:
+  	  #画像取得
+    	_, frame = cap.read()
+    	#画像分割(x軸,y軸)
+	    flame = cv2.resize(frame,(600,300))
+  	  xr, yr = 400, 0
+    	xl, yl = 0, 0
+	    w, h = 200, 300
+  	  right = flame[yr:yr+h, xr:xr+w]
+    	left = flame[yl:yl+h, xl:xl+w]
+    	#色空間→HSV空間
+   	 hsv = cv2.cvtColor(flame,cv2.COLOR_BGR2HSV_FULL)
+    	#赤色判定とする範囲を指定
+	    lower =np.array([0, 64, 0]) 
+	    upper =np.array([15, 255, 255])
+	    #赤色＝コーン部分の大きさの全体定義
+  	  corn1 = inRange(hsv, lower, upper)
+    	#赤色＝コーン部分の大きさの右側定義
+  	  corn2 = inRange(right, lower, upper)
+    	#赤色＝コーン部分の大きさの左側定義
+    	corn3 = inRange(left, lower, upper)
+    
+    	#画面内に赤色がなければ右回転
+ 	   if pyplot.imshow(corn) == 0 :
+  	      turnright()
+    	#右側の赤色が多ければ右回転
+	    elif pyplot.imshow(corn2) >= pyplot.imshow(corn3) :
+  	      turnright()
+    	#左側の赤色が多ければ左回転
+	    elif pyplot.imshow(corn3) >= pyplot.imshow(corn2) :
+  	      turnleft()
+  	  #それ以外（真ん中に捉えている)なら前進
+  	  else :
+    	    moter()
+   	 #コーンの面積率を出し、80%以上なら止める(エクストラサクセス達成)
+   	 if pyplot.imshow(corn1) >= 80 : break
+
+	cap.release()#後処理
+	cv2.destroyALLWindows()
+	
+
+
+#メイン関数===========
+fall_detection()
+land_detection()
+fuse_detection()
+GPS_run()
+image_run()
 
