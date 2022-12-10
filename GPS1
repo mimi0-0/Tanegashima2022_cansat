@@ -1,0 +1,42 @@
+from pyproj import Proj
+import numpy as np
+import math
+
+#goal
+glon=139.753678
+glat=35.688790
+ge2u_zone=int(divmod(lon, 6)[0])+31
+ge2u_conv=Proj(proj='utm', zone=ge2u_zone, ellps='WGS84')
+gutmx, gutmy=ge2u_conv(glon, glat)
+#An arbitral point in EQA coordinate
+lon=139.767120  #[deg.]
+lat=35.681079  #[deg.]
+
+##Compute UTM zone
+#"int": Extract only integer value
+#31: Offset for UTM zone definition
+#6: Angle in a UTM zone for the longitude direction
+e2u_zone=int(divmod(lon, 6)[0])+31
+
+#Define EQA2UTM converter
+e2u_conv=Proj(proj='utm', zone=e2u_zone, ellps='WGS84')
+#Apply the converter
+utmx, utmy=e2u_conv(lon, lat)
+#Add offset if the point in the southern hemisphere
+if lat<0:
+    utmy=utmy+10000
+
+disx=gutmx-utmx
+disy=gutmy-utmy
+#Distance to goal
+dis=np.sqrt(disx**2+disy**2)
+#Angle
+head=(math.atan(disy/disx))
+print(" gUTM zone is ", ge2u_zone, " \n", \
+      "gUTM Easting is", gutmx, "[m]\n",\
+      "gUTM Northing is ", gutmy, "[m]")
+print(" UTM zone is ", e2u_zone, " \n", \
+      "UTM Easting is", utmx, "[m]\n",\
+      "UTM Northing is ", utmy, "[m]")
+print("dis=",dis,"[m]\n",\
+      "head=",head,"[radians]")
