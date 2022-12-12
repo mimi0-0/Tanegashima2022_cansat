@@ -1,0 +1,197 @@
+#保留事項→キャリブレーション、ログ、値取得
+
+import time
+from smbus 
+import math
+import datetime
+import csv
+import RPi.GPIO as GPIO
+import pigpio
+#初期設定==============
+
+#入力→9軸センサ(I2C)、出力→加速度(m/s^2:f2)
+def acce():
+	i2c = smbus.SMBus(1)
+	
+	ACC_ADDRESS = 0x19
+	ACC_REGISTER_ADDRESS = 0x02
+	
+		x_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS)
+    x_msb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+1)
+    y_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+2)
+    y_msb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+3)
+    z_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+4)
+    z_msb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+5)
+
+    x_value = (x_msb * 16) + ((x_lsb & 0xF0) / 16)
+    x_value = x_value if x_value < 2048 else x_value - 4096
+    y_value = (y_msb * 16) + ((y_lsb & 0xF0) / 16)
+    y_value = y_value if y_value < 2048 else y_value - 4096
+    z_value = (z_msb * 16) + ((z_lsb & 0xF0) / 16)
+    z_value = z_value if z_value < 2048 else z_value - 4096
+    
+    x_acc = x_value * 0.00098
+    y_acc = y_value * 0.00098
+    z_acc = z_value * 0.00098
+    
+    acc = math.sqrt(x_acc**2 + y_acc**2 + z_acc**2)
+     
+     i2c.close()
+
+	return acc
+
+#入力→気圧センサ、出力→気圧(hPa:df保留)
+def press():
+	return 
+
+def SERVO(a,b):#サーボモーターの回転の1500-2300を0-800に変換，左右を無視して速度だけで書けるようにした
+    pi.set_servo_pulsewidth(SERVO_L,1485+a)
+    pi.set_servo_pulsewidth(SERVO_R,1480-b)
+
+def motor(left,right,seconds):
+	SERVO_PIN_R = 18
+	SERVO_PIN_L = 17
+	#　速く前
+	pi.set_servo_pulsewidth( SERVO_PIN_R, 1480 - right )
+	pi.set_servo_pulsewidth( SERVO_PIN_L, 1485 + left )
+	time.sleep( seconds )
+	pi.set_servo_pulsewidth( SERVO_PIN_R, 1480 )
+	pi.set_servo_pulsewidth( SERVO_PIN_L, 1485 )
+
+acce_now = acce(#現在時刻) 
+
+def theta():
+	double compass(double x_mag, double y_mag){
+    double theta = atan(y_mag/x_mag)*180/3.1415;
+    if(x_mag > 0){
+        if(y_mag < 0){
+            theta = theta + 360;
+        }
+    }
+    else{
+        theta = theta + 180;
+    }
+    return theta;
+}
+	
+#落下判定==============
+#入力→加速度(f)、出力→次
+def fall_detection():
+	while acce_now <= 9.5:
+		time.sleep(5.0):
+		 
+#着地判定==============
+#入力→加速度(f)、気圧(d)、出力→次
+def land_detection():
+	acce_now =
+	
+
+
+#溶断回路==============
+#入力→、出力→mosfet
+def fuse_detection():
+	
+
+#キャリブレーション==============
+#入力→9軸(地磁気)、出力→誤差(リスト)
+def kyari():
+		BMX055 bmx(p9,p10);
+		Serial pc(USBTX, USBRX);
+
+		double fix_value[2];
+
+
+    double max_buffer[2];
+    double min_buffer[2];
+    for(int i=0;i<30;i++){
+        for(int v=0;v<2;v++){
+            bmx.getMag();
+            double tmp = bmx.magnet[v];
+            if(i == 0){
+                max_buffer[v] = tmp;
+                min_buffer[v] = tmp;
+            }
+            else{
+                if(tmp > max_buffer[v]){
+                    max_buffer[v] = tmp;
+                }
+                if(tmp < min_buffer[v]){
+                    min_buffer[v] = tmp;
+                }
+            }
+        }
+        wait(0.5);
+    }
+    for(int i=0;i<2;i++){
+        fix_value[i] = (max_buffer[i]+min_buffer[i])/2;
+    }
+}
+
+int main(){
+    fix();//fix関数を呼び出してズレを算出
+    while(1){
+        bmx.getMag();
+        double x_mag = bmx.magnet[0];
+        double y_mag = bmx.magnet[1];
+        pc.printf("%f,%f,%f,%f\n",x_mag,y_mag,x_mag-fix_value[0],y_mag-fix_value[1]);
+        wait(0.5);
+
+	
+#GPS誘導==============
+#入力→、出力→モータ
+def GPS_run():
+
+#画像処理誘導==========
+#入力→カメラ、出力→モータ
+def image_run():
+	cap = cv2.VideoCapture(0)
+
+	while True:
+  	  #画像取得
+    	_, frame = cap.read()
+    	#画像分割(x軸,y軸)
+	    flame = cv2.resize(frame,(600,300))
+  	  xr, yr = 400, 0
+    	xl, yl = 0, 0
+	    w, h = 200, 300
+  	  right = flame[yr:yr+h, xr:xr+w]
+    	left = flame[yl:yl+h, xl:xl+w]
+    	#色空間→HSV空間
+   	 hsv = cv2.cvtColor(flame,cv2.COLOR_BGR2HSV_FULL)
+    	#赤色判定とする範囲を指定
+	    lower =np.array([0, 64, 0]) 
+	    upper =np.array([15, 255, 255])
+	    #赤色＝コーン部分の大きさの全体定義
+  	  corn1 = inRange(hsv, lower, upper)
+    	#赤色＝コーン部分の大きさの右側定義
+  	  corn2 = inRange(right, lower, upper)
+    	#赤色＝コーン部分の大きさの左側定義
+    	corn3 = inRange(left, lower, upper)
+    
+    	#画面内に赤色がなければ右回転
+ 	   if pyplot.imshow(corn) == 0 :
+  	      turnright()
+    	#右側の赤色が多ければ右回転
+	    elif pyplot.imshow(corn2) >= pyplot.imshow(corn3) :
+  	      turnright()
+    	#左側の赤色が多ければ左回転
+	    elif pyplot.imshow(corn3) >= pyplot.imshow(corn2) :
+  	      turnleft()
+  	  #それ以外（真ん中に捉えている)なら前進
+  	  else :
+    	    moter()
+   	 #コーンの面積率を出し、80%以上なら止める(エクストラサクセス達成)
+   	 if pyplot.imshow(corn1) >= 80 : break
+
+	cap.release()#後処理
+	cv2.destroyALLWindows()
+	
+
+
+#メイン関数===========
+fall_detection()
+land_detection()
+fuse_detection()
+kyari()
+GPS_run()
+image_run()
