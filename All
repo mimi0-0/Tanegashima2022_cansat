@@ -90,6 +90,11 @@ def land_detection():
 #溶断回路==============
 #入力→、出力→mosfet
 def fuse_detection():
+	FuGpio = 17
+	
+	GPIO.setmode(GPIO.BCM)
+	GPIO.setup(FuGpio,GPIO.OUT)
+	GPIO.output(FuGpio,True)
 	
 
 #キャリブレーション==============
