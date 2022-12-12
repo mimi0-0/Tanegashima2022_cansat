@@ -45,18 +45,18 @@ def press():
 	return 
 
 def SERVO(a,b):#サーボモーターの回転の1500-2300を0-800に変換，左右を無視して速度だけで書けるようにした
-    pi.set_servo_pulsewidth(SERVO_L,1485+a)
-    pi.set_servo_pulsewidth(SERVO_R,1480-b)
+    pi.set_servo_pulsewidth(SERVO_L,1500+a)
+    pi.set_servo_pulsewidth(SERVO_R,1500-b)
 
 def motor(left,right,seconds):
 	SERVO_PIN_R = 18
 	SERVO_PIN_L = 17
 	#　速く前
-	pi.set_servo_pulsewidth( SERVO_PIN_R, 1480 - right )
-	pi.set_servo_pulsewidth( SERVO_PIN_L, 1485 + left )
+	pi.set_servo_pulsewidth( SERVO_PIN_R, 1500 - right )
+	pi.set_servo_pulsewidth( SERVO_PIN_L, 1500 + left )
 	time.sleep( seconds )
-	pi.set_servo_pulsewidth( SERVO_PIN_R, 1480 )
-	pi.set_servo_pulsewidth( SERVO_PIN_L, 1485 )
+	pi.set_servo_pulsewidth( SERVO_PIN_R, 1500 )
+	pi.set_servo_pulsewidth( SERVO_PIN_L, 1500 )
 
 acce_now = acce(#現在時刻) 
 
