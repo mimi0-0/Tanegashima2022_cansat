@@ -1,22 +1,56 @@
 #保留事項→キャリブレーション、ログ、値取得
 
 import time
-from smbus 
+import smbus 
 import math
 import datetime
 import csv
 import RPi.GPIO as GPIO
 import pigpio
+import numpy
 #初期設定==============
+
+#9軸のi2cccアドレス
+ACCL_ADDR = 0x19
+ACCL_R_ADDR = 0x02
+MAG_ADDR = 0x13
+MAG_R_ADDR = 0x42
+i2c = SMBus(1)
 
 #入力→9軸センサ(I2C)、出力→加速度(m/s^2:f2)
 def acce():
+	
+    x_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS)
+    x_msb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+1)
+    y_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+2)
+    y_msb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+3)
+    z_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+4)
+    z_msb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+5)
+
+    x_value = (x_msb * 16) + ((x_lsb & 0xF0) / 16)
+    x_value = x_value if x_value < 2048 else x_value - 4096
+    y_value = (y_msb * 16) + ((y_lsb & 0xF0) / 16)
+    y_value = y_value if y_value < 2048 else y_value - 4096
+    z_value = (z_msb * 16) + ((z_lsb & 0xF0) / 16)
+    z_value = z_value if z_value < 2048 else z_value - 4096
+    
+    x_acc = x_value * 0.00098
+    y_acc = y_value * 0.00098
+    z_acc = z_value * 0.00098
+    
+    acc = math.sqrt(x_acc**2 + y_acc**2 + z_acc**2)
+     
+     i2c.close()
+
+	return acc
+	
+def mag():
 	i2c = smbus.SMBus(1)
 	
-	ACC_ADDRESS = 0x19
-	ACC_REGISTER_ADDRESS = 0x02
+	MAG_ADDRESS = 0x19
+	MAG_REGISTER_ADDRESS = 0x02
 	
-		x_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS)
+    x_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS)
     x_msb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+1)
     y_lsb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+2)
     y_msb = i2c.read_byte_data(ACC_ADDRESS, ACC_REGISTER_ADDRESS+3)
@@ -44,21 +78,22 @@ def acce():
 def press():
 	return 
 
+SERVO_PIN_R = 23
+SERVO_PIN_L = 22
+GPIO.setmode(GPIO.BCM)
+	GPIO.setup(FuGpio,GPIO.OUT)
+
 def SERVO(a,b):#サーボモーターの回転の1500-2300を0-800に変換，左右を無視して速度だけで書けるようにした
-    pi.set_servo_pulsewidth(SERVO_L,1500+a)
-    pi.set_servo_pulsewidth(SERVO_R,1500-b)
+    pi.set_servo_pulsewidth(SERVO_PIN_L,1500+a)
+    pi.set_servo_pulsewidth(SERVO_PIN_R,1500-b)
 
 def motor(left,right,seconds):
-	SERVO_PIN_R = 18
-	SERVO_PIN_L = 17
 	#　速く前
 	pi.set_servo_pulsewidth( SERVO_PIN_R, 1500 - right )
 	pi.set_servo_pulsewidth( SERVO_PIN_L, 1500 + left )
 	time.sleep( seconds )
 	pi.set_servo_pulsewidth( SERVO_PIN_R, 1500 )
 	pi.set_servo_pulsewidth( SERVO_PIN_L, 1500 )
-
-acce_now = acce(#現在時刻) 
 
 def theta():
 	double compass(double x_mag, double y_mag){
