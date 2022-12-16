@@ -11,6 +11,9 @@ from pyproj import Proj
 import numpy
 import cgsensor
 import pyplot
+import serial
+import numpy as np
+import micropyGPS
 #初期設定==============
 pi=pigpio.pi()
 
@@ -109,6 +112,34 @@ def theta():
     return theta;
 }
 	
+def gps():
+    # シリアル通信設定
+    UART = シリアル。シリアル('/dev/tty1', 9600, タイムアウト = 100)
+    # gps設定
+    my_gps = MicropyGPS(9, 'dd')
+
+    # 10秒ごとに表示
+    tm_last = 0
+    一方、 真:
+    文 = uart.readline()
+    len(文)が0>場合:
+    文中のxの場合:
+    10 <= x < = 126の場合:
+    stat = my_gps.update(chr(x))
+    統計の場合:
+    tm = my_gps.タイムスタンプ
+    tm_now = (tm[0] * 3600) + (tm[1] * 60) + int(tm[2])
+    if (tm_now - tm_last) >= 10000:
+    印刷('=' * 20)
+    print(my_gps.date_string(), tm[0], tm[1], int(tm[2]))
+    print("緯度:", my_gps.緯度[0], ", 経度:", my_gps.経度[0])
+    ザワ = my_gps.緯度[0]
+    プリント(ザワ)
+    lon=my_gps.経度[0] 
+    lat=my_gps.緯度[0]
+    return (lat,lon)
+    時間.睡眠(10)
+
 #落下判定==============
 #入力→加速度(f)、出力→次
 def fall_detection():
@@ -179,7 +210,77 @@ int main(){
 	
 #GPS誘導==============
 #入力→、出力→モータ
+
+def heading()
+    #緯度経度取得
+    lat,lon=gps()
+    grs80 = pyproj.Geod(ellps='GRS80')  # GRS80楕円体
+    #方位角、逆方位角、距離を取得
+    head, inverse_head, distance = grs80.inv(lon, lat, glon, glat)
+     print(head,inverse_head, distance)
+     return(head,inverse_head,distance)
+ 
+ 
+def induction(theta1,head)
+     #ゴールへの角度
+     thetadash=270-theta1+head
+     #補正
+     if thetadash<0:
+         thetadash=thetadash+360
+     elif thetadash>360:
+         thetadash=thetadash-360
+     elif 0<thetadash<360:
+         thetadash=thetadash
+     print(thetadash)
+     #曲がる
+     if 360>thetadash>180:
+            thetaLast=thetadash
+            if 360>thetaLast>270:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300,300+M)
+                print("Turn_Left week")
+            elif 270>thetaLast>180:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300,300+M)
+                print("Turn_Left strong")
+      elif 0<thetadash<180:
+            thetaLast=thetadash
+            if 0<thetaLast<90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300+M,300)
+                print("Turn_Right week")
+            elif 180>thetaLast>90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300+M,300)
+                print("Turn_Right strong")
+       else:
+            thetadash=thetadash
+            print("End")
+       time.sleep(0.01)
+ 
 def GPS_run():
+    head,inverse_head,distance=heading()
+    #10m圏内か
+    if distance>10:
+        i=1
+        while i:
+	    head,inverse_head,distance=heading()
+	    if distance<=10:
+	        break
+            else:
+	       induction(theta1,head)
+	       #停止
+               SERVO(0,0)
 
 #画像処理誘導==========
 #入力→カメラ、出力→モータ
