@@ -76,10 +76,7 @@ def mag_value():
             if mag_data[i] > 16383:
                 mag_data[i] -= 32768
     return mag_data
-    
-#入力→気圧センサ、出力→気圧(hPa:df保留)
-def press():
-	return 
+  
 
 SERVO_PIN_R = 23
 SERVO_PIN_L = 22
@@ -161,53 +158,8 @@ def fuse_detection():
 	GPIO.setmode(GPIO.BCM)
 	GPIO.setup(FuGpio,GPIO.OUT)
 	GPIO.output(FuGpio,True)
-	
-
-#キャリブレーション==============
-#入力→9軸(地磁気)、出力→誤差(リスト)
-def kyari():
-		BMX055 bmx(p9,p10);
-		Serial pc(USBTX, USBRX);
-
-		double fix_value[2];
 
 
-    double max_buffer[2];
-    double min_buffer[2];
-    for(int i=0;i<30;i++){
-        for(int v=0;v<2;v++){
-            bmx.getMag();
-            double tmp = bmx.magnet[v];
-            if(i == 0){
-                max_buffer[v] = tmp;
-                min_buffer[v] = tmp;
-            }
-            else{
-                if(tmp > max_buffer[v]){
-                    max_buffer[v] = tmp;
-                }
-                if(tmp < min_buffer[v]){
-                    min_buffer[v] = tmp;
-                }
-            }
-        }
-        wait(0.5);
-    }
-    for(int i=0;i<2;i++){
-        fix_value[i] = (max_buffer[i]+min_buffer[i])/2;
-    }
-}
-
-int main(){
-    fix();//fix関数を呼び出してズレを算出
-    while(1){
-        bmx.getMag();
-        double x_mag = bmx.magnet[0];
-        double y_mag = bmx.magnet[1];
-        pc.printf("%f,%f,%f,%f\n",x_mag,y_mag,x_mag-fix_value[0],y_mag-fix_value[1]);
-        wait(0.5);
-
-	
 #GPS誘導==============
 #入力→、出力→モータ
 
