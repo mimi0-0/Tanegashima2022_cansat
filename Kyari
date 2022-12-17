@@ -1,0 +1,43 @@
+import smbus
+
+def mag_value():
+    data = [0, 0, 0, 0, 0, 0, 0, 0]
+    mag_data = [0.0, 0.0, 0.0]
+    for i in range(8):
+        data[i] = i2c.read_byte_data(MAG_ADDR, MAG_R_ADDR + i)
+    for i in range(3):
+        if i != 2:
+            mag_data[i] = ((data[2*i + 1] * 256) + (data[2*i] & 0xF8)) / 8
+            if mag_data[i] > 4095:
+                mag_data[i] -= 8192
+        else:
+            mag_data[i] = ((data[2*i + 1] * 256) + (data[2*i] & 0xFE)) / 2
+            if mag_data[i] > 16383:
+                mag_data[i] -= 32768
+    return mag_data
+
+fix_value = [0,0]
+
+max_buffer = [0,0]
+min_buffer = [0,0]
+for i in range(30):
+        for v in range(2):
+           mag_value()
+           tmp = mag_data
+           if i == 0:
+                max_buffer[v] = tmp
+                min_buffer[v] = tmp
+            
+           else:
+               if tmp > max_buffer[v]:
+                   max_buffer[v] = tmp
+                
+               if tmp < min_buffer[v]:
+                    min_buffer[v] = tmp
+                
+        time.sleep(0.5)
+    
+    for i in range(2):
+        fix_value[i] = (max_buffer[i]+min_buffer[i])/2
+    }
+}   
