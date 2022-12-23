@@ -1,0 +1,495 @@
+import time
+import serial
+import math
+import numpy as np
+from micropyGPS import MicropyGPS
+import RPi.GPIO as GPIO             #GPIO用のモジュールをインポート                       #時間制御用のモジュールをインポート
+import sys
+import distance
+from geopy.distance import geodesic
+#from matplotlib import pyplot as plt
+import pigpio
+from smbus import SMBus
+import time
+import math
+import datetime
+import csv
+import pigpio
+
+pig=pigpio.pi()
+
+# gps設定
+Lon0=139.767120
+Lat0=35.688790
+GOAL=(Lat0,Lon0)
+
+# シリアル通信設定
+uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
+# gps設定
+my_gps = MicropyGPS(9, 'dd')
+
+
+SERVO_PIN_R= 23
+SERVO_PIN_L= 22
+
+"""
+Servo_pin = 18                      #変数"Servo_pin"に18を格納
+
+#GPIOの設定
+GPIO.setmode(GPIO.BCM)              #GPIOのモードを"GPIO.BCM"に設定
+GPIO.setup(Servo_pin, GPIO.OUT)     #GPIO18を出力モードに設定
+
+#PWMの設定
+#サーボモータSG90の周波数は50[Hz]
+Servo = GPIO.PWM(Servo_pin, 50)     #GPIO.PWM(ポート番号, 周波数[Hz])
+
+Servo.start(0)                      #Servo.start(デューティ比[0-100%])
+"""
+
+###################################GPS#################################################
+
+def GPS():
+    '''
+      # シリアル通信設定
+    uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
+    # gps設定
+    my_gps = MicropyGPS(9, 'dd')
+    '''
+    # 10秒ごとに表示
+    tm_last = 0
+    sentence = uart.readline()
+    if len(sentence) > 0:
+            for x in sentence:
+                if 20 <= x <= 126:
+                    stat = my_gps.update(chr(x))
+                    if stat:
+                        tm = my_gps.timestamp
+                        tm_now = (tm[0] * 3600) + (tm[1] * 60) + int(tm[2])
+                        if (tm_now - tm_last) >= 10000:
+                            print('=' * 20)
+                            #print(my_gps.date_string(), tm[0], tm[1], int(tm[2]))
+                            #print("latitude:", my_gps.latitude[0], ", longitude:", my_gps.longitude[0])
+                            
+                            Lon=np.array([Lon0,my_gps.longitude[0]])
+                            Lat=np.array([Lat0,my_gps.latitude[0]])
+                            a=np.array([Lon0,Lat0])
+                            b=np.array([my_gps.longitude[0],my_gps.latitude[0]])
+                            
+                            vec=b-a
+                            #print("radian",type(np.arctan2(vec[0],vec[1])))
+                            radian = np.arctan2(vec[0],vec[1])
+                            KOKO=(my_gps.latitude[0],my_gps.longitude[0])
+                            dis0=geodesic(GOAL,KOKO).m
+                            angle = 180*radian/math.pi
+                            Lon1=my_gps.longitude[0]
+                            Lat1=my_gps.latitude[0]
+                            result = distance.vincenty_inverse(Lat1, Lon1, Lat0, Lon0, 1)
+                            #print("kyori:",dis)
+                            #dis1=round(result['distance'], 3))
+                            #angle=result['azimuth1'])
+                            #print('方位角(終点→始点)：%s' % result['azimuth2'])
+                            
+    return Lon1,Lat1,dis0,angle,result
+
+#############################################SERVO###############################################
+#角度からデューティ比を求める関数
+"""
+def servo_angle(angle):
+    duty = 2.5 + (12.0 - 2.5) * (angle + 90) / 180   #角度からデューティ比を求める
+    Servo.ChangeDutyCycle(duty)     #デューティ比を変更
+    time.sleep(0.3)                 #0.3秒間待つ
+
+"""
+def servo(a,b):
+    
+    """
+  SERVO_PIN_R= 23
+  SERVO_PIN_L= 22
+  """
+    pig.set_servo_pulsewidth(SERVO_PIN_R,1480+a)
+    pig.set_servo_pulsewidth(SERVO_PIN_L,1480-b)
+
+"""
+
+def motor( servo_PIN_R,servo_PIN_L,seconds)
+  servo_PIN_R = 15
+  servo_PIN_L = 16
+  
+  time.sleep( seconds )
+    pi.set_servo_pulsewidth( SERVO_PIN_R, 1480 )
+    pi.set_servo_pulsewidth( SERVO_PIN_L, 1480 )
+"""
+#########SERVO_PID###############
+
+
+def PID(xoffset,yoffset,theta2):
+  for i in range(0,500):
+      
+      theta1=theta(xoffset,yoffset)+96
+      if theta1<360:
+          theta1=theta1
+      elif theta1>360:
+          theta1=theta1-360
+          print("theta1->",end='')
+          print(theta1)
+      if theta2>0:
+          theta2=theta2
+      elif theta2<0:
+          theta2=theta2+360
+          print("theta2->",end='')
+          print(theta2)
+          thetadash=theta2-theta1
+          print("thetadash->",end='')
+          print(thetadash)
+      if 360>thetadash>180:
+          
+          
+          thetaLast=thetadash
+          if 360>thetaLast>270:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300,300+M)
+                print("Turn_Left week")
+          elif 270>thetaLast>180:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300,300+M)
+                print("Turn_Left strong")
+      elif 0<thetadash<180:
+          
+              
+          thetaLast=thetadash
+          if 0<thetaLast<90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300+M,300)
+                print("Turn_Right week")
+          elif 180>thetaLast>90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300+M,300)
+                print("Turn_Right strong")
+      elif -180<thetadash<0:
+                  
+          thetaLast=thetadash+360
+          if thetaLast>270:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300,300+M)
+                print("Turn_Left week")
+          elif thetaLast<270:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300,300+M)
+                print("Turn_Left strong")
+      elif -360<thetadash<-180:
+            thetaLast=thetadash+360
+            if thetaLast<90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300+M,300)
+                print("Turn_Right week")
+            elif thetaLast>90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                servo(300+M,300)
+                print("Turn_Right strong")
+      else:
+            thetadash=thetadash
+            print("End")
+      time.sleep(0.01)
+############################BMX#################################
+
+
+
+# I2C
+ACCL_ADDR = 0x19
+ACCL_R_ADDR = 0x02
+GYRO_ADDR = 0x69
+GYRO_R_ADDR = 0x02
+MAG_ADDR = 0x13
+MAG_R_ADDR = 0x42
+
+i2c = SMBus(1)
+
+def bmx_setup():
+    # acc_data_setup : 加速度の値をセットアップ
+    i2c.write_byte_data(ACCL_ADDR, 0x0F, 0x03)
+    i2c.write_byte_data(ACCL_ADDR, 0x10, 0x08)
+    i2c.write_byte_data(ACCL_ADDR, 0x11, 0x00)
+    time.sleep(0.5)
+
+    # gyr_data_setup : ジャイロ値をセットアップ
+    i2c.write_byte_data(GYRO_ADDR, 0x0F, 0x04)
+    i2c.write_byte_data(GYRO_ADDR, 0x10, 0x07)
+    i2c.write_byte_data(GYRO_ADDR, 0x11, 0x00)
+    time.sleep(0.5)
+
+    # mag_data_setup : 地磁気値をセットアップ
+    data = i2c.read_byte_data(MAG_ADDR, 0x4B)
+    if(data == 0):
+        i2c.write_byte_data(MAG_ADDR, 0x4B, 0x83)
+        time.sleep(0.5)
+    i2c.write_byte_data(MAG_ADDR, 0x4B, 0x01)
+    i2c.write_byte_data(MAG_ADDR, 0x4C, 0x00)
+    i2c.write_byte_data(MAG_ADDR, 0x4E, 0x84)
+    i2c.write_byte_data(MAG_ADDR, 0x51, 0x04)
+    i2c.write_byte_data(MAG_ADDR, 0x52, 0x16)
+    time.sleep(0.5)
+
+def acc_value():
+    data = [0, 0, 0, 0, 0, 0]
+    acc_data = [0.0, 0.0, 0.0]
+
+    try:
+        for i in range(6):
+            data[i] = i2c.read_byte_data(ACCL_ADDR, ACCL_R_ADDR + i)
+
+        for i in range(3):
+            acc_data[i] = ((data[2*i + 1] * 256) + int(data[2*i] & 0xF0)) / 16
+            if acc_data[i] > 2047:
+                acc_data[i] -= 4096
+            acc_data[i] *= 0.0098
+
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
+
+    return acc_data
+
+def gyro_value():
+    data = [0, 0, 0, 0, 0, 0]
+    gyro_data = [0.0, 0.0, 0.0]
+
+    try:
+        for i in range(6):
+            data[i] = i2c.read_byte_data(GYRO_ADDR, GYRO_R_ADDR + i)
+
+        for i in range(3):
+            gyro_data[i] = (data[2*i + 1] * 256) + data[2*i]
+            if gyro_data[i] > 32767:
+                gyro_data[i] -= 65536
+            gyro_data[i] *= 0.0038
+
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
+
+    return gyro_data
+
+def mag_value():
+    data = [0, 0, 0, 0, 0, 0, 0, 0]
+    mag_data = [0.0, 100.0, 0.0]
+
+    try:
+        for i in range(8):
+            data[i] = i2c.read_byte_data(MAG_ADDR, MAG_R_ADDR + i)
+
+        for i in range(3):
+            if i != 2:
+                mag_data[i] = ((data[2*i + 1] * 256) + (data[2*i] & 0xF8)) / 8
+                if mag_data[i] > 4095:
+                    mag_data[i] -= 8192
+            else:
+                mag_data[i] = ((data[2*i + 1] * 256) + (data[2*i] & 0xFE)) / 2
+                if mag_data[i] > 16383:
+                    mag_data[i] -= 32768
+
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
+
+    return mag_data
+######################ofset########################
+
+def get_ofset():
+    SERVO(300,-300)
+    data=np.zeros((2000,13))
+    for i in range(0,1999):
+        Input_data = mag_value()
+        data[i][0]=Input_data[0]#x
+        data[i][1]=Input_data[1]#y
+        data[i][2]=Input_data[2]#z
+        data[i][3]=Input_data[0]**2#xx
+        data[i][4]=Input_data[1]**2#yy
+        data[i][5]=Input_data[2]**2#zz
+        data[i][6]=Input_data[0]*Input_data[1]#xy
+        data[i][7]=Input_data[1]*Input_data[2]#yz
+        data[i][8]=Input_data[2]*Input_data[0]#zx
+        data[i][9]=Input_data[0]**2+Input_data[1]**2+Input_data[2]**2#xx+yy+zz
+        data[i][10]=data[i][9]*Input_data[0]#x(xx+yy+zz)
+        data[i][11]=data[i][9]*Input_data[1]#y(xx+yy+zz)
+        data[i][12]=data[i][9]*Input_data[2]#z(xx+yy+zz)
+    sumdata=np.sum(data,axis=0)
+    SERVO(0,0)
+    #print(sumdata)
+    array1=np.zeros((4,1))
+    array1[0][0]=sumdata[9]
+    array1[1][0]=sumdata[10]
+    array1[2][0]=sumdata[11]
+    array1[3][0]=sumdata[12]
+    #print(array1)
+    array2=np.zeros((4,4))
+    array2[0][0]=1000########################
+    array2[0][1]=sumdata[0]
+    array2[0][2]=sumdata[1]
+    array2[0][3]=sumdata[2]
+    array2[1][0]=sumdata[0]
+    array2[1][1]=sumdata[3]
+    array2[1][2]=sumdata[6]
+    array2[1][3]=sumdata[8]
+    array2[2][0]=sumdata[1]
+    array2[2][1]=sumdata[6]
+    array2[2][2]=sumdata[4]
+    array2[2][3]=sumdata[7]
+    array2[3][0]=sumdata[2]
+    array2[3][1]=sumdata[8]
+    array2[3][2]=sumdata[7]
+    array2[3][3]=sumdata[5]
+    #print(array2)
+    inv_array2=np.linalg.inv(array2)
+    #print(inv_array2)
+    final=np.dot(inv_array2,array1)
+    #print(final)
+    xofset=final[1]/2
+    yofset=final[2]/2
+    zofset=final[3]/2
+    print(xofset,yofset,zofset)
+    log(path, xofset, yofset, zofset, datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
+    return(xofset,yofset,zofset)
+
+#############################theta###############
+
+def theta(offsetx,offsety):
+    magx=mag_value()[0]-offsetx
+    magy=mag_value()[1]-offsety
+    print("magx,magy->",end='')
+    print(magx,magy)
+    theta=math.atan2(-magy,magx)
+    theta1=theta*180/math.pi
+    if theta1<0:
+        theta1=360+theta1
+        theta1=math.fabs(360-theta1)
+        theta1=theta1
+        if theta1 > 360:
+            theta1=theta1-360
+        elif theta1 <= 360:
+            theta1=theta1
+    elif theta1>0:
+        theta1=theta1
+        theta1=math.fabs(360-theta1)
+        theta1=theta1
+        if theta1 > 360:
+            theta1=theta1-360
+        elif theta1 <= 360:
+            theta1=theta1
+    print(theta)
+    return (theta1)
+
+
+                                    
+if __name__ == "__main__":
+    bmx_setup()
+    time.sleep(0.1)
+    servo(300,300)
+    now_time = datetime.datetime.now()
+    servo(0,0)
+    ofset=get_ofset
+    
+    
+    while True:
+        try:
+            
+  
+            GPS_run =GPS()
+            
+            
+            time.sleep(20)
+            
+            if GPS_run[3] >10:
+                while True:
+                    print("no camera")
+                    GPS_run=GPS()
+                    time.sleep(20)
+                    if GPS_run[2] ==0:
+                        break
+                    if GPS_tun[2] < 10:
+                        break
+                    
+                    else:
+                        PID(ofset[0],ofset[1],GPS_run[2])
+                        SERVO(0,0)
+                    
+                    
+                    
+                    
+        except UnboundLocalError:
+            print("Error")
+            time.sleep(5)
+        """
+        mag = mag_value()
+        theta = math.atan2(mag[1],mag[0]) * 180.0 / 3.141592
+        if ( theta < 0 ):
+            theta = theta + 360.0
+        """  
+        
+        '''
+        theta = 360.0 - theta
+        print("Accl -> x:{}, y:{}, z: {}".format(acc[0], acc[1], acc[2]))
+        print("Gyro -> x:{}, y:{}, z: {}".format(gyro[0], gyro[1], gyro[2]))
+        print("Mag -> x:{}, y:{}, z: {}".format(mag[0], mag[1], mag[2]))
+        '''
+        print(theta)
+        time.sleep(20)
+            
+        """  
+        #GPS()
+        Lat1,Lon1,radian1 =GPS()
+        #print("length:",length1)
+        #print("kyori:",dis)
+        result = distance.vincenty_inverse(Lat1, Lon1, Lat0, Lon0, 1)
+        print('距離：%s(m)' % round(result['distance'], 3))
+        print('方位角(始点→終点)：%s' % result['azimuth1'])
+        print('方位角(終点→始点)：%s' % result['azimuth2'])
+        sitenn=result['azimuth1']
+        shuutenn=result['azimuth2']
+        print(sitenn)
+        print(shuutenn)
+        #print("radian:",radian1)
+        angle = 180*radian1/math.pi
+        #print("angle:",angle)
+        print("angle:",angle)
+       """
+        """    
+        while True:
+            
+            try:
+                 servo_angle(angle)
+                
+                 #servo_angle(0)
+            
+            except:
+                Servo.stop()                   #サーボモータをストップ
+                GPIO.cleanup()                 #GPIOをクリーンアップ
+                sys.exit()
+        """
+       # time.sleep(20)
+        
+   
+    
+  
+    
+    
+    
+       
+
+
