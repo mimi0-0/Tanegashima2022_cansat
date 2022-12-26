@@ -18,8 +18,8 @@ import micropyGPS
 pi=pigpio.pi()
 
 #GPSのgoal
-glon=139.753678
-glat=35.688790
+glon=139
+glat=35
 
 #9軸のi2cアドレス
 ACCL_ADDR = 0x19
