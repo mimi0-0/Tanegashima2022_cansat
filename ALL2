@@ -18,9 +18,9 @@ import pigpio
 
 pig=pigpio.pi()
 
-# gps設定
-Lon0=139.767120
-Lat0=35.688790
+# gps設
+Lon0=139
+Lat0=35
 GOAL=(Lat0,Lon0)
 
 # シリアル通信設定
