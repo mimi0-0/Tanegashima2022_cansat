@@ -222,6 +222,90 @@ def GPS():
                                 #print('方位角(終点→始点)：%s' % result['azimuth2'])
                                 
     return Lon1,Lat1,angle,dis0
+    
+def PID(xoffset,yoffset,theta2):
+    for i in range(0,500):
+        theta1=theta(xoffset,yoffset)+96
+        if theta1<360:
+            theta1=theta1
+        elif theta1>360:
+            theta1=theta1-360
+        print("theta1->",end='')
+        print(theta1)
+        if theta2>0:
+            theta2=theta2
+        elif theta2<0:
+            theta2=theta2+360
+        print("theta2->",end='')
+        print(theta2)
+        thetadash=theta2-theta1
+        print("thetadash->",end='')
+        print(thetadash)
+        if 360>thetadash>180:
+            thetaLast=thetadash
+            if 360>thetaLast>270:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                SERVO(300,300+M)
+                print("Turn_Left week")
+            elif 270>thetaLast>180:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                SERVO(300,300+M)
+                print("Turn_Left strong")
+        elif 0<thetadash<180:
+            thetaLast=thetadash
+            if 0<thetaLast<90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                SERVO(300+M,300)
+                print("Turn_Right week")
+            elif 180>thetaLast>90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                SERVO(300+M,300)
+                print("Turn_Right strong")
+        elif -180<thetadash<0:
+            thetaLast=thetadash+360
+            if thetaLast>270:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                SERVO(300,300+M)
+                print("Turn_Left week")
+            elif thetaLast<270:
+                thetaLast=360-thetaLast
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                SERVO(300,300+M)
+                print("Turn_Left strong")
+        elif -360<thetadash<-180:
+            thetaLast=thetadash+360
+            if thetaLast<90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                SERVO(300+M,300)
+                print("Turn_Right week")
+            elif thetaLast>90:
+                print("mortar->",end='')
+                print(thetaLast)
+                M=1*thetaLast
+                SERVO(300+M,300)
+                print("Turn_Right strong")
+        else:
+            thetadash=thetadash
+            print("E")
+        time.sleep(0.01)
+            
 
 #############################################SERVO###############################################
 #角度からデューティ比を求める関数
