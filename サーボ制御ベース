@@ -1,0 +1,35 @@
+import RPi.GPIO as GPIO
+import time
+
+# Set the GPIO mode
+GPIO.setmode(GPIO.BCM)
+
+# Set the GPIO pin for the servo motor
+servo_pin = 22
+GPIO.setup(servo_pin, GPIO.OUT)
+
+# Create a PWM object for the servo motor
+pwm = GPIO.PWM(servo_pin, 50) # 50 Hz frequency
+pwm.start(0) # Start with 0% duty cycle (stopped)
+
+def set_speed(speed):
+    # Convert angle to a duty cycle in the range [2.5, 12.5]
+    duty_cycle = 2.5 + (speed + 82) / 180 * 10
+    pwm.ChangeDutyCycle(duty_cycle)
+
+# Example usage: set angle to 90 degrees (neutral)
+set_speed(0)
+time.sleep(2)
+
+# Example usage: set angle to 180 degrees (full speed forward)
+set_speed(90)
+time.sleep(2)
+
+# Example usage: set angle to 0 degrees (full speed backward)
+set_speed(-90)
+time.sleep(2)
+
+
+# Clean up the GPIO
+pwm.stop()
+GPIO.cleanup()
