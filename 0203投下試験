@@ -1,0 +1,105 @@
+import time
+from smbus import SMBus
+import math
+import datetime
+import RPi.GPIO as GPIO  
+import pigpio
+import serial
+import csv
+import cgsensor
+import numpy as np
+
+pig=pigpio.pi()#gpio設定
+i2c = SMBus(1)#i2c設定
+
+uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
+
+ACCL_ADDR = 0x19
+ACCL_R_ADDR = 0x02
+
+def bmx_setup():
+    # acc_data_setup : 加速度の値をセットアップ
+    i2c.write_byte_data(ACCL_ADDR, 0x0F, 0x03)
+    i2c.write_byte_data(ACCL_ADDR, 0x10, 0x08)
+    i2c.write_byte_data(ACCL_ADDR, 0x11, 0x00)
+    time.sleep(0.5)
+
+def acc_value():
+    data = [0, 0, 0, 0, 0, 0]
+    acc_data = [0.0, 0.0, 0.0]
+    try:
+       for i in range(6):
+           data[i] = i2c.read_byte_data(ACCL_ADDR, ACCL_R_ADDR + i)
+       for i in range(3):
+           acc_data[i] = ((data[2*i + 1] * 256) + int(data[2*i] & 0xF0)) / 16
+           if acc_data[i] > 2047:
+               acc_data[i] -= 4096
+           acc_data[i] *= 0.0098
+    except IOError as e:
+       print("I/O error({0}): {1}".format(e.errno, e.strerror))
+    acc_abs=np.sqrt(acc_data[0]**2+acc_data[1]**2+acc_data[2]**2)
+    return acc_abs
+
+def press_value()
+    bme280 = cgsensor.BME280(i2c_addr=0x76)  # BME280制御クラスのインスタンス, i2c_addrは0x76/0x77から選択
+    bme280.forced()  # Forcedモードで測定を行い, 結果をtemperature, pressure, humidityに入れる
+    press_data = bme280.pressure()
+    return press_data
+
+def land_detection():
+    led = 17
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(led,GPIO.OUT)
+    GPIO.output(led, GPIO.LOW)
+    time.sleep(0.1)
+
+    while i:
+        acc_abs=acc_value()
+        # 落下判定
+        if acc_abs<10.0: # 実証実験で正規分布を取得し、値を決める
+            start_time=time.time()
+            print("fall start!!")
+
+            now_time=time.time()
+            count=now_time-start_time
+
+            if count>=60: # 60秒経過後パラシュート溶断
+                GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
+                time.sleep(5)
+                GPIO.output(led, GPIO.LOW)
+                i=0
+                break
+
+            else:
+                first_pressure = press_value()
+
+                while True:
+                    current_pressure = press_value()
+                    print("Pressure: {:.2f} hPa".format(current_pressure))
+
+                    if current_pressure - first_pressure > 2:
+                        GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
+                        time.sleep(5)
+                        GPIO.output(led, GPIO.LOW)
+                        break
+
+                    time.sleep(1)
+
+                first_acc = acc_value()
+
+                while True:
+                    second_acc = acc_value()
+                    print("acce: {:.2f} hPa".format(second_acc))
+
+                    if second_acc - first_acc < 2:
+                        GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
+                        time.sleep(5)
+                        GPIO.output(led, GPIO.LOW)
+                        break
+    GPIO.cleanup()
+
+if __name__ == '__main__':
+    land_detection()
+    print("land_detection finish!!")
+
+
