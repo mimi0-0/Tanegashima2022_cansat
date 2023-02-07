@@ -38,11 +38,11 @@ def find_red_quadrant(image):
     else:
         red_percentages = [red_percentage_1, red_percentage_2, red_percentage_3, red_percentage_4]
         quadrant = red_percentages.index(max(red_percentages)) + 1
-
+    print(quadrant)
     return quadrant
 
 if __name__ == '__main__':
-    camera = cv2.VideoCapture(1)
+    camera = cv2.VideoCapture(0)
     while True:
         # Get the current frame
         ret, image = camera.read()
@@ -51,10 +51,11 @@ if __name__ == '__main__':
             break
         # Get the current timestamp
         timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime())
-        # Show the frame
-        cv2.imshow("Image", image)
+        # Show the frameエラー吐くので一時コメントアウト
+        #cv2.imshow("Image", image)
         # Save the frame
         cv2.imwrite(timestamp + ".jpg", image)
+        print("photo ok")
         
         image_num = find_red_quadrant(image)
         if image_num == 0: 
