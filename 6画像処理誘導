@@ -1,48 +1,78 @@
-#カメラモジュールの入力より右回転→1、左回転→2、前進→3、停止→4と出力するプログラム
-
 import cv2
+import time
 import numpy as np
 
-#ラズパイカメラから入力開始
-cap = cv2.VideoCapture(0)
+#画像を縦に四分割して左から何番目の部分が一番赤色の部分が多いか判定する関数
+def find_red_quadrant(image):
+    #画像の高さと幅をタプルで返す
+    height, width = image.shape[:2]
+    quarter_width = width // 4
 
-while True:
-    #画像取得
-    _, frame = cap.read()
-    #画像分割(x軸,y軸)
-    flame = cv2.resize(frame,(600,300))
-    xr, yr = 400, 0
-    xl, yl = 0, 0
-    w, h = 200, 300
-    right = flame[yr:yr+h, xr:xr+w]
-    left = flame[yl:yl+h, xl:xl+w]
-    #色空間→HSV空間
-    hsv = cv2.cvtColor(flame,cv2.COLOR_BGR2HSV_FULL)
-    #赤色判定とする範囲を指定
-    lower =np.array([0, 64, 0]) 
-    upper =np.array([15, 255, 255])
-    #赤色＝コーン部分の大きさの全体定義
-    corn1 = inRange(hsv, lower, upper)
-    #赤色＝コーン部分の大きさの右側定義
-    corn2 = inRange(right, lower, upper)
-    #赤色＝コーン部分の大きさの左側定義
-    corn3 = inRange(left, lower, upper)
-    
-    #画面内に赤色がなければ右回転
-    if pyplot.imshow(corn) == 0 :
-        print("1")
-    #右側の赤色が多ければ右回転
-    elif pyplot.imshow(corn2) >= pyplot.imshow(corn3) :
-        print("1")
-    #左側の赤色が多ければ左回転
-    elif pyplot.imshow(corn3) >= pyplot.imshow(corn2) :
-        print("2")
-    #それ以外（真ん中に捉えている)なら前進
-    else :
-        print("3")
-    #コーンの面積率を出し、80%以上なら止める(エクストラサクセス達成)
-    if pyplot.imshow(corn1) >= 80 : break
-print("4")
+    # 画像をHSV形式に変換
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-cap.release()#後処理
-cv2.destroyALLWindows()
+    # HSV形式での赤色範囲を定義
+    lower_red, upper_red = np.array([0, 50, 50]), np.array([10, 255, 255])
+
+    # HSV画像から赤色のみを抽出するための閾値設定
+    red_mask = cv2.inRange(hsv, lower_red, upper_red)
+
+    # 赤のマスクを縦に4分割
+    red_mask_1 = red_mask[ :, 0: quarter_width]
+    red_mask_2 = red_mask[ :, quarter_width: 2 * quarter_width]
+    red_mask_3 = red_mask[ :, 2 * quarter_width: 3 * quarter_width]
+    red_mask_4 = red_mask[ :, 3 * quarter_width:]
+
+    # 画像の各部に含まれる赤の割合
+    red_percentage = np.sum(red_mask) / (height * width)
+    red_percentage_1 = np.sum(red_mask_1) / (height * quarter_width)
+    red_percentage_2 = np.sum(red_mask_2) / (height * quarter_width)
+    red_percentage_3 = np.sum(red_mask_3) / (height * quarter_width)
+    red_percentage_4 = np.sum(red_mask_4) / (height * quarter_width)
+
+    # 最も赤い部分を探す、赤い部分が十分多ければ0を返す、赤い部分が無ければ5を返す
+    if red_percentage > 50:
+        quadrant = 0
+    elif red_percentage_1 == red_percentage_2 == red_percentage_3 == red_percentage_4:
+        quadrant = 5
+    else:
+        red_percentages = [red_percentage_1, red_percentage_2, red_percentage_3, red_percentage_4]
+        quadrant = red_percentages.index(max(red_percentages)) + 1
+
+    return quadrant
+
+if __name__ == '__main__':
+    camera = cv2.VideoCapture(1)
+    while True:
+        # Get the current frame
+        ret, image = camera.read()
+        # Break if the image is not obtained
+        if not ret:
+            break
+        # Get the current timestamp
+        timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime())
+        # Show the frame
+        cv2.imshow("Image", image)
+        # Save the frame
+        cv2.imwrite(timestamp + ".jpg", image)
+        
+        image_num = find_red_quadrant(image)
+        if image_num == 0: 
+            print("all mission finished!!!")
+        elif image_num ==1:
+            #左に強く旋回、具体的値を実験で決定
+            time.sleep(2)
+        elif image_num ==2:
+            #左に弱く旋回、具体的値を実験で決定
+            time.sleep(2)
+        elif image_num ==3:
+            #右に弱く旋回、具体的値を実験で決定
+            time.sleep(2)
+        elif image_num ==4:
+            #右に強く旋回、具体的値を実験で決定
+            time.sleep(2)
+        else:
+            time.sleep(2)
+
+    camera.release()
+    cv2.destroyAllWindows()
