@@ -20,21 +20,19 @@ pi=pigpio.pi()#gpio設定
 i2c = SMBus(1)#i2c設定
 
 # ゴールのgps設定
-#シゲさんの家
-Lon0=139
-Lat0=35
+#講義棟
+Lon0=139.909129
+Lat0=35.917699
 GOAL=[Lon0,Lat0]
 
-#9軸のi2cアドレス
-
-MAG_ADDR = 0x13
-MAG_R_ADDR = 0x42
 
 uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
 
 def bmx_setup():
     ACCL_ADDR = 0x19
     ACCL_R_ADDR = 0x02
+    MAG_ADDR = 0x13
+    MAG_R_ADDR = 0x42
     # acc_data_setup : 加速度の値をセットアップ
     i2c.write_byte_data(ACCL_ADDR, 0x0F, 0x03)
     i2c.write_byte_data(ACCL_ADDR, 0x10, 0x08)
@@ -78,20 +76,24 @@ def press_value():
 
 
 def land_detection():
+    #溶断初期設定
     led = 17
     i = 1
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(led,GPIO.OUT)
     GPIO.output(led, GPIO.LOW)
     time.sleep(0.1)
+    #時間定義
     now_time = datetime.datetime.now()
     
     while i:
         acc_abs=acc_value()
+        print(acc_abs)
         # 落下判定
         if acc_abs<6.0: # 実証実験で正規分布を取得し、値を決める
             start_a_time=time.time()
             first_pressure = press_value()
+
             print("fall start!!")
 
             while True:
@@ -103,6 +105,7 @@ def land_detection():
                     time.sleep(5)
                     GPIO.output(led, GPIO.LOW)
                     i=0
+                    print("press timeout")
                     break
 
                 current_pressure = press_value()
@@ -112,12 +115,13 @@ def land_detection():
                     GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
                     time.sleep(5)
                     GPIO.output(led, GPIO.LOW)
+                    print("press ok")
                     break
 
                 time.sleep(1)
 
-                first_acc = acc_value()
-                start_b_time=time.time()
+            first_acc = acc_value()
+            start_b_time=time.time()
 
             while True:
                 now_time=time.time()
@@ -129,18 +133,23 @@ def land_detection():
                     time.sleep(5)
                     GPIO.output(led, GPIO.LOW)
                     i=0
+                    print("acc timeout")
                     break
 
                 if second_acc - first_acc < 2:
                     GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
                     time.sleep(5)
                     GPIO.output(led, GPIO.LOW)
+                    print("acc ok")
                     break
+        time.sleep(1)
     GPIO.cleanup()
 #=====================================================================================================================================================
     
 #取得した磁気の生データを変換
 def mag_value():
+    MAG_ADDR = 0x13
+    MAG_R_ADDR = 0x42
     data = [0, 0, 0, 0, 0, 0, 0, 0]
     mag_data = [0.0, 0.0, 0.0]
     try:
