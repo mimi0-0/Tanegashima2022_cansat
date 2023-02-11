@@ -77,38 +77,66 @@ def press_value():
     return bme280.pressure()
 
 
-def land_detection(led, wait_time, fall_threshold, delta_p_threshold, delta_a_threshold, i2c):
-    first_acc = acc_value(i2c)
-    if first_acc < fall_threshold:  # Fall detected
-        start_time = time.time()
-        print("Fall start!!")
-        now_time = time.time()
-        if now_time - start_time >= wait_time:  # Parachute solenoid disconnect after wait_time
-            GPIO.output(led, GPIO.HIGH)
-            time.sleep(5)
-            GPIO.output(led, GPIO.LOW)
-        else:
+def land_detection():
+    led = 17
+    i = 1
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(led,GPIO.OUT)
+    GPIO.output(led, GPIO.LOW)
+    time.sleep(0.1)
+    now_time = datetime.datetime.now()
+    
+    while i:
+        acc_abs=acc_value()
+        # 落下判定
+        if acc_abs<6.0: # 実証実験で正規分布を取得し、値を決める
+            start_a_time=time.time()
             first_pressure = press_value()
-            while True:
-                current_pressure = press_value()
-                print(f"Pressure: {current_pressure:.2f} hPa")
-                if current_pressure - first_pressure > delta_p_threshold:
-                    GPIO.output(led, GPIO.HIGH)
-                    time.sleep(5)
-                    GPIO.output(led, GPIO.LOW)
-                    return
-                time.sleep(1)
-            second_acc = acc_value(i2c)
-            while True:
-                current_acc = acc_value(i2c)
-                print(f"Acc_abs: {current_acc:.2f} hPa")
-                if second_acc - current_acc < delta_a_threshold:
-                    GPIO.output(led, GPIO.HIGH)
-                    time.sleep(5)
-                    GPIO.output(led, GPIO.LOW)
-                    return
-    return
+            print("fall start!!")
 
+            while True:
+                now_time=time.time()
+                count1=now_time-start_a_time
+
+                if count1>=20: # 20秒経過後パラシュート溶断
+                    GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
+                    time.sleep(5)
+                    GPIO.output(led, GPIO.LOW)
+                    i=0
+                    break
+
+                current_pressure = press_value()
+                print("Pressure: {:.2f} hPa".format(current_pressure))
+
+                if current_pressure - first_pressure > 2:
+                    GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
+                    time.sleep(5)
+                    GPIO.output(led, GPIO.LOW)
+                    break
+
+                time.sleep(1)
+
+                first_acc = acc_value()
+                start_b_time=time.time()
+
+            while True:
+                now_time=time.time()
+                count2=now_time-start_b_time
+                second_acc = acc_value()
+
+                if count2>=20: # 20秒経過後パラシュート溶断
+                    GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
+                    time.sleep(5)
+                    GPIO.output(led, GPIO.LOW)
+                    i=0
+                    break
+
+                if second_acc - first_acc < 2:
+                    GPIO.output(led, GPIO.HIGH) # 回路班の上げた回路図より
+                    time.sleep(5)
+                    GPIO.output(led, GPIO.LOW)
+                    break
+    GPIO.cleanup()
 #=====================================================================================================================================================
     
 #取得した磁気の生データを変換
@@ -412,6 +440,8 @@ def image_run():
 if __name__ == '__main__':
     land_detection()
     print("land_detection finish!!")
+    straight(90)
+    time.sleep(10)
     while True:
         GPS_data = GPS()
         if GPS_data[4]>10:
