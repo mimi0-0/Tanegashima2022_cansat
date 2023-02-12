@@ -21,16 +21,6 @@ pig=pigpio.pi()#gpio設定
 i2c = SMBus(1)#i2c設定
 
 # ゴールのgps設定
-#シゲさんの家
-"""
-Lon0=139
-Lat0=35
-GOAL=[Lon0,Lat0]
-"""
-#シゲさんの家
-Lon0=139.767120
-Lat0=35.688790
-GOAL=(Lat0,Lon0)
 
 uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
     # gps設定
