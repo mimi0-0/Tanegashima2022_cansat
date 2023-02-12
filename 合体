@@ -25,7 +25,6 @@ Lon0=139.909129
 Lat0=35.917699
 GOAL=[Lon0,Lat0]
 
-
 uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
 
 def bmx_setup():
@@ -442,28 +441,40 @@ def image_run():
             time.sleep(2)
 
     camera.release()
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
 
 
  #以下，誘導
 if __name__ == '__main__':
     land_detection()
     print("land_detection finish!!")
+
     straight(90)
-    time.sleep(10)
+    time.sleep(5)
+    pwm_R.stop()
+    pwm_L.stop()
+    GPIO.cleanup()
+
+    print(fix_start)
+    fix_value =　fix()
+
     while True:
         GPS_data = GPS()
-        if GPS_data[4]>10:
+        if GPS_data[3]>10:
             while True:
                 #GPSの情報取得
                 GPS_data = GPS()
-                if GPS_data[4]<10:
+                if GPS_data[3]<10:
                     break
                 else:
                 #PID制御
-                    PID2(pos_theta,sat_theta,dis0)
+                    pos_theta,sat_theta =pos(GPS_data[0],GPS_data[1]),sat()
+                    PID2(pos_theta,sat_theta,GPS_data[3])
                     #PID一回終了ごとにGPS取得のため一旦停止
-                    pi.stop()
+                    pwm_R.stop()
+                    pwm_L.stop()
+                    GPIO.cleanup()
+
     print("GPS PROCESS FINISH!")
     image_run()
     print("ALL PROCESS FINISH")
