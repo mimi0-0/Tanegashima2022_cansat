@@ -11,6 +11,7 @@ from pyproj import Proj
 import serial
 import numpy as np
 from micropyGPS import MicropyGPS
+from geopy.distance import geodesic
 import csv
 import cgsensor
 import cv2
@@ -21,9 +22,9 @@ i2c = SMBus(1)#i2c設定
 
 # ゴールのgps設定
 #講義棟
-Lon0=139.909129
-Lat0=35.917699
-GOAL=[Lon0,Lat0]
+Lon0=139.9091
+Lat0=35.9176
+GOAL=[Lat0,Lon0]
 
 uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
 
@@ -69,10 +70,10 @@ def acc_value():
 
 
 def press_value():
-    bme280 = cgsensor.BME280(i2c_addr=0x76)
-    bme280.forced()
-    return bme280.pressure()
-
+    bme280 = cgsensor.BME280(i2c_addr=0x76)  # BME280制御クラスのインスタンス, i2c_addrは0x76/0x77から選択
+    bme280.forced()  # Forcedモードで測定を行い, 結果をtemperature, pressure, humidityに入れる
+    press_data = bme280.pressure
+    return press_data
 
 def land_detection():
     #溶断初期設定
@@ -283,17 +284,17 @@ def GPS():
                             if (tm_now - tm_last) >= 10000:
                                 print('=' * 20)
                                 #print(my_gps.date_string(), tm[0], tm[1], int(tm[2]))
-                                #print("latitude:", my_gps.latitude[0], ", longitude:", my_gps.longitude[0])
+                                print("latitude:", my_gps.latitude[0], ", longitude:", my_gps.longitude[0])
                                 
                                 Lon=np.array([Lon0,my_gps.longitude[0]])
                                 Lat=np.array([Lat0,my_gps.latitude[0]])
                                 a=np.array([Lon0,Lat0])
                                 b=np.array([my_gps.longitude[0],my_gps.latitude[0]])
                                 
-                                    
+                                vec = b-a 
                                 #print("radian",type(np.arctan2(vec[0],vec[1])))
                                 radian = np.arctan2(vec[0],vec[1])
-                                KOKO=(my_gps.latitude[0],my_gps.longitude[0])
+                                KOKO=(my_gps.latitude[0],my_gps.longitude[0],)
                                 dis0=geodesic(GOAL,KOKO).m
                                 angle = 180*radian/math.pi
                                 Lon1=my_gps.longitude[0]
@@ -327,7 +328,7 @@ def sat(offsetx,offsety):
     if sat_theta_1>-90 and sat_theta_1<0:
         sat_theta = sat_theta_1    
     elif sat_theta_1>90 and sat_theta_1<180:
-        sat_theta = sat_theta_1  
+        sat_theta = sat_theta_1
     elif sat_theta_1>90 and sat_theta_1<180:
         sat_theta = sat_theta_1 +180
     else:
@@ -412,34 +413,32 @@ def image_run():
         elif image_num == 1:
             #左に強く旋回、具体的値を実験で決定
             turn(90)
-            time.sleep(2)
+            time.sleep(1)
             straight(45)
             time.sleep(2)
         elif image_num == 2:
             #左に弱く旋回、具体的値を実験で決定
             turn(45)
-            time.sleep(2)
+            time.sleep(1)
             straight(45)
             time.sleep(2)
         elif image_num == 3:
             #右に弱く旋回、具体的値を実験で決定
             turn(-45)
-            time.sleep(2)
+            time.sleep(1)
             straight(45)
             time.sleep(2)
         elif image_num == 4:
             #右に強く旋回、具体的値を実験で決定
             turn(-90)
-            time.sleep(2)
+            time.sleep(1)
             straight(45)
             time.sleep(2)
         else:
             #左に強く旋回、具体的値を実験で決定
             turn(90)
             time.sleep(2)
-            straight(45)
-            time.sleep(2)
-
+            
     camera.release()
     #cv2.destroyAllWindows()
 
@@ -455,8 +454,8 @@ if __name__ == '__main__':
     pwm_L.stop()
     GPIO.cleanup()
 
-    print(fix_start)
-    fix_value =　fix()
+    print("fix_start")
+    fix_value = fix()
 
     while True:
         GPS_data = GPS()
