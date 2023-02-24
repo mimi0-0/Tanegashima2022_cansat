@@ -1,4 +1,4 @@
-#FM用
+ #FM用
 
 #挿入ライブラリ
 import time
@@ -151,7 +151,11 @@ def image_run():
             #左に強く旋回、具体的値を実験で決定
             turn(90)
             time.sleep(2)
-            
+    
+    pwm_R.stop()
+    pwm_L.stop()
+    GPIO.cleanup()
+    time.sleep(5)
     camera.release()
     #cv2.destroyAllWindows()
 
