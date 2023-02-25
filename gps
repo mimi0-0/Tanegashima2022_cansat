@@ -1,28 +1,45 @@
-import time
-import serial
-from micropyGPS import MicropyGPS
-
-def main():
-    # シリアル通信設定
-    uart = serial.Serial('/dev/serial0', 9600, timeout = 10)
-    # gps設定
-    my_gps = MicropyGPS(9, 'dd')
-
+def GPS():
+    
     # 10秒ごとに表示
+    #初期化
+    Lon1=0
+    Lat1=0
+    angle=0
+    dis0=0
     tm_last = 0
-    while True:
-        sentence = uart.readline()
-        if len(sentence) > 0:
-            for x in sentence:
-                if 10 <= x <= 126:
+    stat=0
+    sentence=0
+    uart.readline()  #一回目のデータ読み込み(一回目は捨てる←不完全なデータの可能性)
+    time.sleep(1)
+    
+    sentence = uart.readline() #二回目のデータ読み込み(本命)
+    if len(sentence) > 0:
+        #データが読み込めているか判断する
+        for x in sentence:
+                #位置情報が読み込めているか判断するため繰り返す
+                if 20 <= x <= 126:
+                    #MicropyGPSにていぎされている範囲
                     stat = my_gps.update(chr(x))
+                    #GPGGA,GPGLL等を文字にする
                     if stat:
-                        tm = my_gps.timestamp
-                        tm_now = (tm[0] * 3600) + (tm[1] * 60) + int(tm[2])
-                        if (tm_now - tm_last) >= 10:
-                            print('=' * 20)
-                            print(my_gps.date_string(), tm[0], tm[1], int(tm[2]))
-                            print("latitude:", my_gps.latitude[0], ", longitude:", my_gps.longitude[0])
-
-if __name__ == "__main__":
-    main()
+                        #読み込めているなら、結果を出力する
+                        print('=' * 20)
+                            
+                        print("latitude:", my_gps.latitude[0], ", longitude:", my_gps.longitude[0])
+                            
+                        Lon=np.array([Lon0,my_gps.longitude[0]])
+                        Lat=np.array([Lat0,my_gps.latitude[0]])
+                        a=np.array([Lon0,Lat0])
+                        b=np.array([my_gps.longitude[0],my_gps.latitude[0]])
+                            
+                        vec=b-a
+                        radian = np.arctan2(vec[0],vec[1])
+                        print("dis0")
+                        KOKO=(my_gps.latitude[0],my_gps.longitude[0])
+                        dis0=geodesic(GOAL,KOKO).m
+                        angle = 180*radian/math.pi
+                        Lon1=my_gps.longitude[0]
+                        Lat1=my_gps.latitude[0]
+                       
+                            
+    return Lon1,Lat1,dis0,angle
