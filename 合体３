@@ -159,7 +159,7 @@ def land_detection():
                     print("acc ok")
                     break
         time.sleep(1)
-    GPIO.cleanup()
+    
 #=====================================================================================================================================================
     
 #取得した磁気の生データを変換
@@ -178,10 +178,11 @@ GPIO.setup(servo_L_pin, GPIO.OUT)
 # Create a PWM object for the servo motor
 pwm_R = GPIO.PWM(servo_R_pin, 50) # 50 Hz frequency
 pwm_L = GPIO.PWM(servo_L_pin, 50)
-pwm_R.start(0) # Start with 0% duty cycle (stopped)
-pwm_L.start(0)
+
 
 def straight(speed):
+    pwm_R.start(0) # Start with 0% duty cycle (stopped)
+    pwm_L.start(0)
     # Convert angle to a duty cycle in the range [2.5, 12.5]
     duty_cycle_R = 2.5 + (speed + 82) / 180 * 10
     duty_cycle_L = 2.5 + (-speed + 82) / 180 * 10
@@ -189,6 +190,8 @@ def straight(speed):
     pwm_L.ChangeDutyCycle(duty_cycle_L)
 
 def turn(speed):
+    pwm_R.start(0) # Start with 0% duty cycle (stopped)
+    pwm_L.start(0)
     # Convert angle to a duty cycle in the range [2.5, 12.5]
     duty_cycle = 2.5 + (speed + 82) / 180 * 10
     pwm_R.ChangeDutyCycle(duty_cycle)
@@ -414,27 +417,27 @@ def image_run():
         elif image_num == 1:
             #左に強く旋回、具体的値を実験で決定
             turn(90)
-            time.sleep(1)
+            time.sleep(0.2)
             straight(45)
-            time.sleep(2)
+            time.sleep(10)
         elif image_num == 2:
             #左に弱く旋回、具体的値を実験で決定
             turn(45)
-            time.sleep(1)
+            time.sleep(0.2)
             straight(45)
-            time.sleep(2)
+            time.sleep(10)
         elif image_num == 3:
             #右に弱く旋回、具体的値を実験で決定
             turn(-45)
-            time.sleep(1)
+            time.sleep(0.2)
             straight(45)
-            time.sleep(2)
+            time.sleep(10)
         elif image_num == 4:
             #右に強く旋回、具体的値を実験で決定
             turn(-90)
-            time.sleep(1)
+            time.sleep(0.2)
             straight(45)
-            time.sleep(2)
+            time.sleep(10)
         else:
             #左に強く旋回、具体的値を実験で決定
             turn(90)
@@ -451,14 +454,18 @@ def image_run():
 
  #以下，誘導
 if __name__ == '__main__':
+    bmx_setup()
     land_detection()
     print("land_detection finish!!")
 
+    mag_data = mag_value()
+    while mag_data[2] > 0:
+        straight(-90)
+        time.sleep(2)
     straight(90)
     time.sleep(5)
     pwm_R.stop()
     pwm_L.stop()
-    GPIO.cleanup()
 
     print("fix_start")
     fix_value = fix()
@@ -478,9 +485,8 @@ if __name__ == '__main__':
                     #PID一回終了ごとにGPS取得のため一旦停止
                     pwm_R.stop()
                     pwm_L.stop()
-                    GPIO.cleanup()
                     time.sleep(5)
-
     print("GPS PROCESS FINISH!")
+
     image_run()
     print("ALL PROCESS FINISH")
