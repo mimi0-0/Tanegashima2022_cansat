@@ -21,9 +21,9 @@ pi=pigpio.pi()#gpio設定
 i2c = SMBus(1)#i2c設定
 
 # ゴールのgps設定
-#講義棟
-Lon0=139.9091
-Lat0=35.9176
+#金町駅
+Lon0=139.869350
+Lat0=35.769723
 GOAL=[Lat0,Lon0]
 
 uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
@@ -303,6 +303,10 @@ def GPS():
                         print("dis0")
                         KOKO=(my_gps.latitude[0],my_gps.longitude[0])
                         dis0=geodesic(GOAL,KOKO).m
+                        filename = "test.csv"
+                        with open(filename, 'w', newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerows(dis0)
                         angle = 180*radian/math.pi
                         Lon1=my_gps.longitude[0]
                         Lat1=my_gps.latitude[0]
@@ -340,13 +344,14 @@ def sat(offsetx,offsety):
 
 def PID2(pos_theta,sat_theta,dis0):   
     pre_turn = (pos_theta-sat_theta) / 360#機体の旋回する角度
+    print(pre_turn)
     r = 105#機体の横の長さ/2
     r_1 = 67.5#車輪の半径
     turn = r/r_1*pre_turn
     d_s = 1.42#1秒あたりの回転率turn(45)
     en = 0.43
     seconds1 = turn / d_s
-    seconds2 = dis0 / d_s
+    seconds2 = dis0 / (d_s * en)
 
     turn(45)
     time.sleep(seconds1)
@@ -354,7 +359,25 @@ def PID2(pos_theta,sat_theta,dis0):
     time.sleep(5)
     pwm_R.stop()
     pwm_L.stop()
-    GPIO.cleanup()
+    
+def PID_image(image_num):   
+    pre_turn = ((image_num * 15) - 37.5) / 360#機体の旋回する角度
+    print(pre_turn)
+    r = 105#機体の横の長さ/2
+    r_1 = 67.5#車輪の半径
+    turn = r/r_1*pre_turn
+    d_s = #1秒あたりの回転率turn(30)
+    en = 0.43
+    seconds3 = turn / d_s
+    
+
+    turn(45)
+    time.sleep(seconds1)
+    straight(90)
+    time.sleep(5)
+    pwm_R.stop()
+    pwm_L.stop()
+    
 
 #画像を縦に四分割して左から何番目の部分が一番赤色の部分が多いか判定する関数
 def find_red_quadrant(image):
@@ -385,7 +408,7 @@ def find_red_quadrant(image):
     red_percentage_4 = np.sum(red_mask_4) / (height * quarter_width)
 
     # 最も赤い部分を探す、赤い部分が十分多ければ0を返す、赤い部分が無ければ5を返す
-    if red_percentage > 50:
+    if red_percentage > 75:
         quadrant = 0
     elif red_percentage_1 == red_percentage_2 == red_percentage_3 == red_percentage_4:
         quadrant = 5
@@ -413,39 +436,16 @@ def image_run():
 
         image_num = find_red_quadrant(image)
         if image_num == 0: 
-            print("all mission finished!!!")
-        elif image_num == 1:
-            #左に強く旋回、具体的値を実験で決定
-            turn(90)
-            time.sleep(0.2)
-            straight(45)
-            time.sleep(10)
-        elif image_num == 2:
-            #左に弱く旋回、具体的値を実験で決定
+            break
+        elif image_num == 5:
+            #左に強く旋回
             turn(45)
-            time.sleep(0.2)
-            straight(45)
-            time.sleep(10)
-        elif image_num == 3:
-            #右に弱く旋回、具体的値を実験で決定
-            turn(-45)
-            time.sleep(0.2)
-            straight(45)
-            time.sleep(10)
-        elif image_num == 4:
-            #右に強く旋回、具体的値を実験で決定
-            turn(-90)
-            time.sleep(0.2)
-            straight(45)
-            time.sleep(10)
+            time.sleep(0.5)
+            pwm_R.stop()
+            pwm_L.stop()
         else:
-            #左に強く旋回、具体的値を実験で決定
-            turn(90)
-            time.sleep(2)
-    
-    
-    pwm_R.stop()
-    pwm_L.stop()
+            PID_image(image_num)
+            
     GPIO.cleanup()
     time.sleep(5)
     camera.release()
@@ -462,7 +462,7 @@ if __name__ == '__main__':
     while mag_data[2] > 0:
         straight(-90)
         time.sleep(2)
-    straight(90)
+    straight(45)
     time.sleep(5)
     pwm_R.stop()
     pwm_L.stop()
@@ -489,4 +489,4 @@ if __name__ == '__main__':
     print("GPS PROCESS FINISH!")
 
     image_run()
-    print("ALL PROCESS FINISH")
+    print("ALL PROCESS FINISHED")
