@@ -1,0 +1,489 @@
+#Pleiasnaut_最終プログラム
+
+#挿入ライブラリ
+import time
+from smbus import SMBus
+import math
+import datetime
+import pigpio
+import RPi.GPIO as GPIO  
+from pyproj import Proj
+import serial
+import numpy as np
+from micropyGPS import MicropyGPS
+from geopy.distance import geodesic
+import csv
+import cgsensor
+import cv2
+
+#初期設定==============
+pi=pigpio.pi()#gpio設定
+i2c = SMBus(1)#i2c設定
+
+# ゴールのgps設定
+Lon0=130.960124
+Lat0=30.374298
+GOAL=[Lat0,Lon0]
+
+uart = serial.Serial('/dev/serial0', 9600, timeout = 100)
+
+def bmx_setup():
+    ACCL_ADDR = 0x19
+    ACCL_R_ADDR = 0x02
+    MAG_ADDR = 0x13
+    MAG_R_ADDR = 0x42
+    # acc_data_setup : 加速度の値をセットアップ
+    i2c.write_byte_data(ACCL_ADDR, 0x0F, 0x03)
+    i2c.write_byte_data(ACCL_ADDR, 0x10, 0x08)
+    i2c.write_byte_data(ACCL_ADDR, 0x11, 0x00)
+    time.sleep(0.5)
+
+    i2c.write_byte_data(MAG_ADDR, 0x4B, 0x01)
+    i2c.write_byte_data(MAG_ADDR, 0x4C, 0x00)
+    i2c.write_byte_data(MAG_ADDR, 0x4E, 0x84)
+    i2c.write_byte_data(MAG_ADDR, 0x51, 0x04)
+    i2c.write_byte_data(MAG_ADDR, 0x52, 0x16)
+    time.sleep(0.5)
+
+def acc_value():
+    ACCL_ADDR = 0x19
+    ACCL_R_ADDR = 0x02
+    data = [0, 0, 0, 0, 0, 0]
+    acc_data = [0.0, 0.0, 0.0]
+    try:
+       for i in range(6):
+           data[i] = i2c.read_byte_data(ACCL_ADDR, ACCL_R_ADDR + i)
+       for i in range(3):
+           acc_data[i] = ((data[2*i + 1] * 256) + int(data[2*i] & 0xF0)) / 16
+           if acc_data[i] > 2047:
+               acc_data[i] -= 4096
+           acc_data[i] *= 0.0098
+    except IOError as e:
+       print("I/O error({0}): {1}".format(e.errno, e.strerror))
+    acc_abs=np.sqrt(acc_data[0]**2+acc_data[1]**2+acc_data[2]**2)
+    return acc_abs
+
+def mag_value():
+    MAG_ADDR = 0x13
+    MAG_R_ADDR = 0x42
+    data = [0, 0, 0, 0, 0, 0, 0, 0]
+    mag_data = [0.0, 0.0, 0.0]
+    try:
+        for i in range(8):
+            data[i] = i2c.read_byte_data(MAG_ADDR, MAG_R_ADDR + i)
+        for i in range(3):
+            if i != 2:
+                mag_data[i] = ((data[2*i + 1] * 256) + (data[2*i] & 0xF8)) / 8
+                if mag_data[i] > 4095:
+                    mag_data[i] -= 8192
+            else:
+                mag_data[i] = ((data[2*i + 1] * 256) + (data[2*i] & 0xFE)) / 2
+                if mag_data[i] > 16383:
+                    mag_data[i] -= 32768
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
+    return mag_data
+
+def press_value():
+    bme280 = cgsensor.BME280(i2c_addr=0x76)  # BME280制御クラスのインスタンス, i2c_addrは0x76/0x77から選択
+    bme280.forced()  # Forcedモードで測定を行い, 結果をtemperature, pressure, humidityに入れる
+    press_data = bme280.pressure
+    return press_data
+
+def land_detection():
+    #溶断初期設定
+    led = 26
+    i = 1
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(led,GPIO.OUT)
+    GPIO.output(led, GPIO.LOW)
+    time.sleep(0.1)
+    #時間定義
+    now_time = datetime.datetime.now()
+    
+    while i:
+        acc_abs=acc_value()
+        print(acc_abs)
+        # 落下判定
+        if acc_abs<6.0: # 実証実験で正規分布を取得し、値を決める
+            start_a_time=time.time()
+            first_pressure = press_value()
+
+            print("fall start!!")
+
+            while True:
+                now_time=time.time()
+                count1=now_time-start_a_time
+
+                if count1>=5: # 5秒経過後パラシュート溶断
+                    GPIO.output(led, GPIO.HIGH) 
+                    time.sleep(2)
+                    GPIO.output(led, GPIO.LOW)
+                    i=0
+                    print("press timeout")
+                    break
+
+                current_pressure = press_value()
+                print("Pressure: {:.2f} hPa".format(current_pressure))
+
+                if current_pressure - first_pressure > 2:
+                    GPIO.output(led, GPIO.HIGH) 
+                    time.sleep(2)
+                    GPIO.output(led, GPIO.LOW)
+                    i = 0
+                    print("press ok")
+                    break
+
+                time.sleep(1)
+
+            first_acc = acc_value()
+            start_b_time=time.time()
+
+            while True:
+                now_time=time.time()
+                count2=now_time-start_b_time
+                second_acc = acc_value()
+
+                if count2>=5: # 5秒経過後パラシュート溶断
+                    GPIO.output(led, GPIO.HIGH) 
+                    time.sleep(5)
+                    GPIO.output(led, GPIO.LOW)
+                    i=0
+                    print("acc timeout")
+                    break
+
+                if second_acc - first_acc < 2:
+                    GPIO.output(led, GPIO.HIGH) 
+                    time.sleep(2)
+                    GPIO.output(led, GPIO.LOW)
+                    i = 0
+                    print("acc ok")
+                    break
+        time.sleep(1)
+    
+
+# Set the GPIO mode
+GPIO.setmode(GPIO.BCM)
+
+# Set the GPIO pin for the servo motor
+servo_R_pin = 22
+servo_L_pin = 23
+GPIO.setup(servo_R_pin, GPIO.OUT)
+GPIO.setup(servo_L_pin, GPIO.OUT)
+
+
+# Create a PWM object for the servo motor
+pwm_R = GPIO.PWM(servo_R_pin, 50) # 50 Hz frequency
+pwm_L = GPIO.PWM(servo_L_pin, 50)
+
+
+def straight(speed):
+    pwm_R.start(0) # Start with 0% duty cycle (stopped)
+    pwm_L.start(0)
+    # Convert angle to a duty cycle in the range [2.5, 12.5]
+    duty_cycle_R = 2.5 + (speed + 82) / 180 * 10
+    duty_cycle_L = 2.5 + (-speed + 82) / 180 * 10
+    pwm_R.ChangeDutyCycle(duty_cycle_R)
+    pwm_L.ChangeDutyCycle(duty_cycle_L)
+
+def turn(speed):
+    pwm_R.start(0) # Start with 0% duty cycle (stopped)
+    pwm_L.start(0)
+    # Convert angle to a duty cycle in the range [2.5, 12.5]
+    duty_cycle = 2.5 + (speed + 82) / 180 * 10
+    pwm_R.ChangeDutyCycle(duty_cycle)
+    pwm_L.ChangeDutyCycle(duty_cycle)
+
+
+def fix():
+    mag_data = []
+    #ループ変数。v=0でlistのx成分v=1でlistのy成分を参照 
+    v=0
+    #0回目取得で無条件にmax,minにいれる
+    i=0
+    #最大値と最小値用,最終的なオフセット用リスト。x.y方向あるから各々2データ
+    max_buffer = [0,0,0]
+    min_buffer = [0,0,0] 
+    fix_value = [0,0,0]
+
+    turn(45)
+
+    #rangeの値は適当
+    for value in range(40):
+        mag_data = mag_value()
+        
+        #デバッグ
+        print('mag_data:' ,(mag_data))
+
+        #ここからmagのリストのインデックスを見てる
+        while(v<2):
+
+            #iが1週ごとに回るからtmpは配列である必要なし
+            tmp = mag_data[v]
+
+            #i==0。一番最初は何も入ってないから無条件でmaxとminに入る
+            if(i==0):
+                max_buffer[v] = tmp
+                min_buffer[v] = tmp
+            #1番最初以外はすでにmax.minに値が入ってるから判定してあげる
+            else:
+                if(tmp > max_buffer[v]):
+                    max_buffer[v] = tmp
+                if(tmp < min_buffer[v]):
+                    min_buffer[v] = tmp
+            v = v+1
+        #v++の位置は間違えないように!(配列のインデックスがずれる)
+
+        #デバッグ
+        #print('max_buffer:' ,max_buffer)
+        #print('min_buffer:' ,min_buffer)
+
+        #後でいじる
+        time.sleep(0.5)
+
+        #リセット忘れずに。iで何回目か
+        v=0
+        i = i+1
+
+    #v=0でリストのx成分。v=1でリストのy成分を参照するためのloop
+    v=0
+    while(v<2):
+        fix_value[v] = (max_buffer[v] + min_buffer[v])/2
+        v = v+1
+    
+    #終了処理
+    print("Stop!!")
+    
+    pwm_R.stop()
+    pwm_L.stop()
+
+    return fix_value
+
+def GPS():
+    
+    # 10秒ごとに表示
+    #初期化
+    Lon1=0
+    Lat1=0
+    angle=0
+    dis0=0
+    tm_last = 0
+    stat=0  
+    sentence=0
+    uart.readline()  #一回目のデータ読み込み(一回目は捨てる←不完全なデータの可能性)
+    time.sleep(1)
+    
+    my_gps = MicropyGPS(9, 'dd')
+    sentence = uart.readline() #二回目のデータ読み込み(本命)
+    if len(sentence) > 0:
+        #データが読み込めているか判断する
+        for x in sentence:
+                #位置情報が読み込めているか判断するため繰り返す
+                if 20 <= x <= 126:
+                    #MicropyGPSにていぎされている範囲
+                    stat = my_gps.update(chr(x))
+                    #GPGGA,GPGLL等を文字にする
+                    if stat:
+                        #読み込めているなら、結果を出力する
+                        print('=' * 20)
+                        print("latitude:", my_gps.latitude[0], ", longitude:", my_gps.longitude[0])
+                            
+                        Lon=np.array([Lon0,my_gps.longitude[0]])
+                        Lat=np.array([Lat0,my_gps.latitude[0]])
+                        a=np.array([Lon0,Lat0])
+                        b=np.array([my_gps.longitude[0],my_gps.latitude[0]])
+                        print("dis0")
+                        KOKO=(my_gps.latitude[0],my_gps.longitude[0])
+                        dis0=geodesic(GOAL,KOKO).meters
+                        filename = "test.csv"
+                        with open(filename, 'w', newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerows(dis0)
+                        Lon1=my_gps.longitude[0]
+                        Lat1=my_gps.latitude[0]
+                        break
+  return Lon1,Lat1,dis0
+
+#位置角度    
+def pos(Lon1,Lat1):
+    Lon=Lon0-Lon1
+    Lat=Lat0-Lat1
+    print("Lon,Lat->",end='')
+    print(Lon,Lat)
+    pos_theta_1=math.atan2(Lat,Lon)#範囲は-π〜π
+    pos_theta=math.degrees(pos_theta_1)#範囲は-180~180
+    return (pos_theta)
+
+#キャリブレーション補正有り機体向き
+def sat(offsetx,offsety):    
+    magx=mag_value()[0]-offsetx
+    magy=mag_value()[1]-offsety
+    print("magx,magy->",end='')
+    print(magx,magy)
+    sat_theta_1=math.degrees(math.atan2(magy,magx))#範囲は-180〜180
+    if sat_theta_1>-90 and sat_theta_1<0:
+        sat_theta = sat_theta_1    
+    elif sat_theta_1>90 and sat_theta_1<180:
+        sat_theta = sat_theta_1
+    elif sat_theta_1>90 and sat_theta_1<180:
+        sat_theta = sat_theta_1 +180
+    else:
+        sat_theta = sat_theta_1 -180 
+    print(sat_theta)
+    return (sat_theta)
+
+def PID_GPS(pos_theta,sat_theta,dis0):   
+    pre_turn = (pos_theta-sat_theta) / 360#機体の旋回する角度
+    print(pre_turn)
+    r = 105#機体の横の長さ/2
+    r_1 = 67.5#車輪の半径
+    turn = r/r_1*pre_turn
+    d_s = 1.42#1秒あたりの回転率turn(45)
+    en = 0.43
+    seconds1 = turn / d_s
+    seconds2 = dis0 / (d_s * en)
+
+    turn(45)
+    time.sleep(seconds1)
+    straight(90)
+    time.sleep(seconds2)
+    pwm_R.stop()
+    pwm_L.stop()
+    
+def PID_image(image_num):   
+    pre_turn = ((image_num * 15) - 37.5) / 360#機体の旋回する角度
+    print(pre_turn)
+    r = 105#機体の横の長さ/2
+    r_1 = 67.5#車輪の半径
+    turn = r/r_1*pre_turn
+    d_s = #1秒あたりの回転率turn(30)
+    en = 0.43
+    seconds3 = turn / d_s
+    
+
+    turn(45)
+    time.sleep(seconds3)
+    straight(45)
+    time.sleep(3)
+    pwm_R.stop()
+    pwm_L.stop()
+    
+
+#画像を縦に四分割して左から何番目の部分が一番赤色の部分が多いか判定する関数
+def find_red_quadrant(image):
+    #画像の高さと幅をタプルで返す
+    height, width = image.shape[:2]
+    quarter_width = width // 4
+
+    # 画像をHSV形式に変換
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # HSV形式での赤色範囲を定義
+    lower_red, upper_red = np.array([0, 50, 50]), np.array([10, 255, 255])
+
+    # HSV画像から赤色のみを抽出するための閾値設定
+    red_mask = cv2.inRange(hsv, lower_red, upper_red)
+
+    # 赤のマスクを縦に4分割
+    red_mask_1 = red_mask[ :, 0: quarter_width]
+    red_mask_2 = red_mask[ :, quarter_width: 2 * quarter_width]
+    red_mask_3 = red_mask[ :, 2 * quarter_width: 3 * quarter_width]
+    red_mask_4 = red_mask[ :, 3 * quarter_width:]
+
+    # 画像の各部に含まれる赤の割合
+    red_percentage = np.sum(red_mask) / (height * width)
+    red_percentage_1 = np.sum(red_mask_1) / (height * quarter_width)
+    red_percentage_2 = np.sum(red_mask_2) / (height * quarter_width)
+    red_percentage_3 = np.sum(red_mask_3) / (height * quarter_width)
+    red_percentage_4 = np.sum(red_mask_4) / (height * quarter_width)
+
+    # 最も赤い部分を探す、赤い部分が十分多ければ0を返す、赤い部分が無ければ5を返す
+    if red_percentage > 75:
+        quadrant = 0
+    elif red_percentage_1 == red_percentage_2 == red_percentage_3 == red_percentage_4:
+        quadrant = 5
+    else:
+        red_percentages = [red_percentage_1, red_percentage_2, red_percentage_3, red_percentage_4]
+        quadrant = red_percentages.index(max(red_percentages)) + 1
+    print(quadrant)
+    return quadrant
+
+def image_run():
+    camera = cv2.VideoCapture(0)
+    while True:
+		# Get the current frame
+        ret, image = camera.read()
+		# Break if the image is not obtained
+        if not ret:
+            break
+        # Get the current timestamp
+        timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime())
+        # Show the frameエラー吐くので一時コメントアウト
+        #cv2.imshow("Image", image)
+        # Save the frame
+        cv2.imwrite(timestamp + ".jpg", image)
+        print("photo ok")
+
+        image_num = find_red_quadrant(image)
+        if image_num == 0: 
+            break
+        elif image_num == 5:
+            #左に強く旋回
+            turn(45)
+            time.sleep(0.5)
+            pwm_R.stop()
+            pwm_L.stop()
+        else:
+            PID_image(image_num)
+            
+    GPIO.cleanup()
+    time.sleep(5)
+    camera.release()
+    #cv2.destroyAllWindows()
+
+
+ #以下，誘導
+if __name__ == '__main__':
+    bmx_setup()
+    
+    #落下判定と着地判定
+    land_detection()
+    print("land_detection finish!!")
+
+    #スタック判定からの高速逆回転→停止で本来の姿勢に戻す
+    mag_data = mag_value()
+    while mag_data[2] > 0:
+        straight(-90)
+        time.sleep(2)
+        straight(0)
+        time.sleep(2)
+    
+    #パラシュート絡まり回避のための直進
+    straight(45)
+    time.sleep(5)
+    pwm_R.stop()
+    pwm_L.stop()
+    
+    #キャリブレーション
+    print("fix_start")
+    fix_value = fix()
+
+    #GPS制御
+    while True:
+        #GPSの情報取得
+        GPS_data = GPS()
+        print
+        if GPS_data[2]<10:
+            break
+        else:
+        #PID制御
+            pos_theta,sat_theta =pos(GPS_data[0],GPS_data[1]),sat(fix_value[0],fix_value[1])
+            PID_GPS(pos_theta,sat_theta,GPS_data[2])
+            #PID一回終了ごとにGPS取得のため一旦停止
+            pwm_R.stop()
+            pwm_L.stop()
+            time.sleep(5)
+    print("GPS PROCESS FINISH!")
+    #画像制御
+    image_run()
+    print("ALL PROCESS FINISHED")
